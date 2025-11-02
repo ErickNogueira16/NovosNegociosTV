@@ -1,78 +1,81 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Raizz Capital - TV Novos Negócios</title>
-    <script type="text/javascript" src="https://public.tableau.com/javascripts/api/tableau-2.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-        }
-        #vizContainer {
-            width: 100%;
-            height: 100vh;
-        }
-    </style>
-    <link rel="icon" href="https://raizzcapital.com.br/wp-content/uploads/2024/02/logo-raizz-capital-fundo-branco.webp">
+  <title>Raizz Capital - TV Novos Negócios</title>
+  <script type="module" src="https://us-east-1.online.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; }
+    #vizContainer { width: 100%; height: 100vh; }
+    tableau-viz { width: 100%; height: 100vh; border: none; }
+  </style>
+  <link rel="icon" href="https://raizzcapital.com.br/wp-content/uploads/2024/02/logo-raizz-capital-fundo-branco.webp">
 </head>
 <body>
-    <div id="vizContainer"></div>
+  <div id="vizContainer"></div>
 
-    <script>
-        let viz;
-        const dashboardNames = ["Geral", "Tarefas Especulativo", "Tarefas BTS"]; 
-        const tempoPorPainel = 60000;
-        let currentDashboardIndex = 0;
+  <script>
+    // 🔗 URL do backend (Render)
+    const backendURL = "https://tableau-backend-h83x.onrender.com/get_tableau_url?painel=novos";
 
-        const url = "https://public.tableau.com/views/TV_Novos_Negcios_-_Raizz_Capital/TarefasBTS?:language=pt-BR&publish=yes&:sid=&:redirect=auth&:display_count=n&:origin=viz_share_link";
+    // 🧭 Dashboards dentro do workbook
+    const dashboardNames = ["Geral", "Tarefas Especulativo", "Tarefas BTS"];
+    const tempoPorPainel = 60000; // 60 segundos
+    let currentDashboardIndex = 0;
+    let vizElement = null;
 
-        const options = {
-            hideTabs: true,
-            hideToolbar: true,
-            onFirstInteractive: function() {
-                console.log("Visualização carregada!");
-                listarSheets();
-                iniciarCiclo();
-            }
-        };
+    async function carregarViz() {
+      try {
+        const response = await fetch(backendURL);
+        const data = await response.json();
 
-        function initViz() {
-            const containerDiv = document.getElementById("vizContainer");
-            viz = new tableau.Viz(containerDiv, url, options);
+        if (data.error) {
+          console.error("Erro ao gerar token:", data.error);
+          return;
         }
 
-        function listarSheets() {
-            const workbook = viz.getWorkbook();
-            const sheets = workbook.getPublishedSheetsInfo();
-            sheets.forEach(s => console.log("Sheet disponível:", s.getName()));
-        }
+        const { embed_url, jwt } = data;
+        console.log("✅ URL autenticada recebida:", embed_url);
 
-        function iniciarCiclo() {
-            setInterval(trocarPainel, tempoPorPainel);
-        }
+        // 🧩 Cria o componente <tableau-viz>
+        const container = document.getElementById("vizContainer");
+        container.innerHTML = ""; // limpa o anterior
+        vizElement = document.createElement("tableau-viz");
+        vizElement.src = embed_url;
+        vizElement.token = jwt; // passa o JWT
+        vizElement.toolbar = "hidden";
+        vizElement.hideTabs = true;
+        container.appendChild(vizElement);
 
-        function trocarPainel() {
-            const workbook = viz.getWorkbook();
-            const painelAtual = dashboardNames[currentDashboardIndex];
+        iniciarCiclo();
+      } catch (error) {
+        console.error("❌ Erro ao inicializar o Tableau:", error);
+      }
+    }
 
-            workbook.activateSheetAsync(painelAtual)
-                .then(() => {
-                    console.log("Painel ativado:", painelAtual);
-                    currentDashboardIndex = (currentDashboardIndex + 1) % dashboardNames.length;
-                })
-                .catch(error => {
-                    console.error("Erro na transição:", error);
-                });
-        }
+    function iniciarCiclo() {
+      setInterval(() => trocarPainel(), tempoPorPainel);
+    }
 
-        initViz();
+    async function trocarPainel() {
+      currentDashboardIndex = (currentDashboardIndex + 1) % dashboardNames.length;
 
-        setTimeout(() => {
-            location.reload(true);
-        }, 900000);
-    </script>
+      // Pega nova URL autenticada
+      const response = await fetch(backendURL);
+      const data = await response.json();
+      const { embed_url } = data;
+
+      const painelAtual = dashboardNames[currentDashboardIndex];
+      // Substitui a view na URL atual
+      const novoUrl = embed_url.replace("Especulativo", painelAtual.replace(/\s+/g, ""));
+      
+      vizElement.src = novoUrl;
+      console.log("🔁 Painel trocado para:", painelAtual);
+    }
+
+    carregarViz();
+
+    // 🔄 Recarrega a página a cada 15 minutos
+    setTimeout(() => location.reload(true), 900000);
+  </script>
 </body>
 </html>
-
-
-
